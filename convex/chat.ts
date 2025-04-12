@@ -62,6 +62,11 @@ export const sendMessageHttpStream = httpAction(async (ctx, request) => {
   });
 
   const result = await thread.streamText({ prompt });
+  await ctx.scheduler.runAfter(
+    1000,
+    internal.threadTitles.maybeUpdateThreadTitle,
+    { threadId }
+  );
 
   return result.toTextStreamResponse();
 });
