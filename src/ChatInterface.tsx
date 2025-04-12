@@ -1,13 +1,11 @@
-import { useCallback, useState } from "react";
-import {
-  useAction,
-  useMutation,
-  usePaginatedQuery,
-  useQuery,
-} from "convex/react";
+import { useCallback, useMemo, useState } from "react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Button } from "./components/ui/button";
 import { useToast } from "./hooks/use-toast";
+import { useAuthToken } from "@convex-dev/auth/react";
+
+const STREAM_URL = `${import.meta.env.VITE_CONVEX_URL.replace(".cloud", ".site")}/streamText`;
 
 export function ChatInterface() {
   const { toast } = useToast();
@@ -15,8 +13,8 @@ export function ChatInterface() {
   const [newMessage, setNewMessage] = useState("");
 
   const createThread = useMutation(api.chat.createThread);
-  const sendMessage = useAction(api.chat.sendMessage);
-
+  // const sendMessage = useAction(api.chat.sendMessage);
+  const [streamingText, startStreaming] = useStreamingText(selectedThreadId);
   const threads = usePaginatedQuery(
     api.chat.getThreads,
     {},
@@ -63,10 +61,7 @@ export function ChatInterface() {
       // run async
       void (async () => {
         try {
-          await sendMessage({
-            threadId: selectedThreadId,
-            prompt: newMessage,
-          });
+          await startStreaming(newMessage);
         } catch (error) {
           setNewMessage(prompt);
           console.error("Error sending message:", error);
@@ -78,7 +73,7 @@ export function ChatInterface() {
         }
       })();
     },
-    [selectedThreadId, newMessage, sendMessage, toast]
+    [selectedThreadId, newMessage, startStreaming, toast]
   );
 
   return (
@@ -113,19 +108,23 @@ export function ChatInterface() {
             {/* Messages */}
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="flex flex-col-reverse space-y-reverse space-y-4">
-                {inProgressMessages?.map((message) => (
-                  <div
-                    key={message._id}
-                    className={`flex ${
-                      message.message?.role === "assistant"
-                        ? "justify-start"
-                        : "justify-end"
-                    }`}
-                  >
-                    {message.text}
+                {streamingText.text && (
+                  <div key="streaming-text" className={`flex justify-start`}>
+                    <div
+                      className={`max-w-[80%] rounded-lg p-3 bg-gray-100 text-blue-600`}
+                    >
+                      <strong className="block mb-1">Assistant</strong>
+                      <div>{streamingText.text}</div>
+                    </div>
                   </div>
-                ))}
-                {messages?.results.map((message, i) => (
+                )}
+                {streamingText.error && (
+                  <div>Error: {streamingText.error.message}</div>
+                )}
+                {[
+                  ...(inProgressMessages || []),
+                  ...(messages?.results || []),
+                ]?.map((message, i) => (
                   <div
                     key={i}
                     className={`flex ${
@@ -176,4 +175,57 @@ export function ChatInterface() {
       </div>
     </div>
   );
+}
+
+function useStreamingText(threadId: string | null) {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const token = useAuthToken();
+
+  const readStream = useMemo(
+    () => async (prompt: string) => {
+      if (!threadId) return;
+      try {
+        setText("");
+        setLoading(true);
+        setError(null);
+        const response = await fetch(STREAM_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ prompt, threadId }),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        if (!response.body) {
+          throw new Error("No body");
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedText = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          accumulatedText += decoder.decode(value);
+          setText(accumulatedText);
+        }
+        setText("");
+      } catch (e) {
+        if (e instanceof Error && e.name !== "AbortError") {
+          setError(e);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [threadId, token]
+  );
+  return [{ text, loading, error }, readStream] as const;
 }

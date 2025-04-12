@@ -4,13 +4,9 @@ import { action, httpAction, mutation, query } from "./_generated/server";
 import { Agent } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { createOpenAI } from "@ai-sdk/openai";
+import { openai } from "@ai-sdk/openai";
 import type { MessageDoc, ThreadDoc } from "@convex-dev/agent";
 
-const openai = createOpenAI({
-  baseURL: process.env.CONVEX_OPENAI_BASE_URL,
-  apiKey: process.env.CONVEX_OPENAI_API_KEY,
-});
 const chatAgent = new Agent(components.agent, {
   chat: openai.chat("gpt-4o-mini"),
   instructions:
