@@ -89,7 +89,7 @@ export function ChatInterface() {
               key={thread._id}
               onClick={() => setSelectedThreadId(thread._id)}
               className={`w-full p-2 text-left rounded hover:bg-slate-100 ${
-                selectedThreadId === thread.threadId ? "bg-slate-100" : ""
+                selectedThreadId === thread._id ? "bg-slate-100" : ""
               }`}
             >
               <div className="truncate">
