@@ -89,7 +89,9 @@ export const sendMessageHttpStream = httpAction(async (ctx, request) => {
     { threadId }
   );
 
-  return result.toTextStreamResponse();
+  const response = result.toTextStreamResponse();
+  response.headers.set("Message-Id", result.messageId!);
+  return response;
 });
 export const getThreads = query({
   args: { paginationOpts: paginationOptsValidator },

@@ -1,7 +1,10 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
 import { sendMessageHttpStream } from "./chat";
-import { corsRouter } from "convex-helpers/server/cors";
+import {
+  corsRouter,
+  DEFAULT_EXPOSED_HEADERS,
+} from "convex-helpers/server/cors";
 
 const http = httpRouter();
 
@@ -16,5 +19,6 @@ cors.route({
   path: "/streamText",
   method: "POST",
   handler: sendMessageHttpStream,
+  exposedHeaders: [...DEFAULT_EXPOSED_HEADERS, "Message-Id"],
 });
 export default http;

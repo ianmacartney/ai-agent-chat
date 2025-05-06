@@ -35,6 +35,24 @@ export function ChatInterface() {
     api.chat.getInProgressMessages,
     selectedThreadId ? { threadId: selectedThreadId } : "skip"
   );
+  const allMessages = [
+    ...(streamingText.text &&
+    streamingText.messageId &&
+    inProgressMessages?.some((m) => m._id === streamingText.messageId)
+      ? [
+          {
+            _id: streamingText.messageId + "-in-progress",
+            text: streamingText.text,
+            message: {
+              role: "assistant" as const,
+              content: streamingText.text,
+            },
+          },
+        ]
+      : []),
+    ...(inProgressMessages || []),
+    ...(messages?.results || []),
+  ];
 
   const handleNewChat = useCallback(() => {
     void createThread()
@@ -108,25 +126,12 @@ export function ChatInterface() {
             {/* Messages */}
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="flex flex-col-reverse space-y-reverse space-y-4">
-                {streamingText.text && (
-                  <div key="streaming-text" className={`flex justify-start`}>
-                    <div
-                      className={`max-w-[80%] rounded-lg p-3 bg-gray-100 text-blue-600`}
-                    >
-                      <strong className="block mb-1">Assistant</strong>
-                      <div>{streamingText.text}</div>
-                    </div>
-                  </div>
-                )}
                 {streamingText.error && (
                   <div>Error: {streamingText.error.message}</div>
                 )}
-                {[
-                  ...(inProgressMessages || []),
-                  ...(messages?.results || []),
-                ]?.map((message, i) => (
+                {allMessages?.map((message) => (
                   <div
-                    key={i}
+                    key={message._id}
                     className={`flex ${
                       message.message?.role === "assistant"
                         ? "justify-start"
@@ -179,6 +184,7 @@ export function ChatInterface() {
 
 function useStreamingText(threadId: string | null) {
   const [text, setText] = useState("");
+  const [messageId, setMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const token = useAuthToken();
@@ -204,6 +210,8 @@ function useStreamingText(threadId: string | null) {
         if (!response.body) {
           throw new Error("No body");
         }
+        const messageId = response.headers.get("Message-Id");
+        setMessageId(messageId);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedText = "";
@@ -216,7 +224,6 @@ function useStreamingText(threadId: string | null) {
           accumulatedText += decoder.decode(value);
           setText(accumulatedText);
         }
-        setText("");
       } catch (e) {
         if (e instanceof Error && e.name !== "AbortError") {
           setError(e);
@@ -227,5 +234,5 @@ function useStreamingText(threadId: string | null) {
     },
     [threadId, token]
   );
-  return [{ text, loading, error }, readStream] as const;
+  return [{ text, loading, error, messageId }, readStream] as const;
 }
