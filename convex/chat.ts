@@ -1,16 +1,37 @@
 import { v } from "convex/values";
 import { paginationOptsValidator, PaginationResult } from "convex/server";
 import { action, httpAction, mutation, query } from "./_generated/server";
-import { Agent } from "@convex-dev/agent";
+import { Agent, createTool } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { openai } from "@ai-sdk/openai";
 import type { MessageDoc, ThreadDoc } from "@convex-dev/agent";
+import { z } from "zod";
+
+export const updateThreadTitle = createTool({
+  args: z.object({
+    title: z.string().describe("The new title for the thread"),
+  }),
+  description:
+    "Update the title of the current thread. It will respond with 'updated' if it succeeded",
+  handler: async (ctx, args) => {
+    if (!ctx.threadId) {
+      console.warn("updateThreadTitle called without a threadId");
+      return "skipped";
+    }
+    await ctx.runMutation(components.agent.messages.updateThread, {
+      threadId: ctx.threadId,
+      patch: { title: args.title },
+    });
+    return "updated";
+  },
+});
 
 const chatAgent = new Agent(components.agent, {
   chat: openai.chat("gpt-4o-mini"),
   instructions:
     "You are a helpful AI assistant. Respond concisely and accurately to user questions.",
+  tools: { updateThreadTitle },
 });
 
 export const createThread = mutation({
