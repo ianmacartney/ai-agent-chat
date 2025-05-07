@@ -21,17 +21,18 @@ const applicationTables = {
     usage: vUsage,
     providerMetadata: vProviderMetadata,
 
-    // This can be something like the timestamp of the hour this usage occurred
-    // in or the first day of the current month, if you bill monthly.
+    // In this case, we're setting it to the first day of the current month,
+    // using UTC time for the month boundaries.
+    // You could alternatively store it as a timestamp number.
     // You can then fetch all the usage at the end of the billing period
     // and calculate the total cost.
-    billingPeriod: v.optional(v.number()), // When the usage period ended
+    billingPeriod: v.string(), // When the usage period ended
   }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
 
   invoices: defineTable({
     userId: v.id("users"),
-    billingPeriod: v.number(),
-    totalCost: v.number(),
+    billingPeriod: v.string(),
+    amount: v.number(),
     status: v.union(
       v.literal("pending"),
       v.literal("paid"),
