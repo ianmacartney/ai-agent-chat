@@ -7,6 +7,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { openai } from "@ai-sdk/openai";
 import type { MessageDoc, ThreadDoc } from "@convex-dev/agent";
 import { z } from "zod";
+import { Id } from "./_generated/dataModel";
 
 export const updateThreadTitle = createTool({
   args: z.object({
@@ -32,6 +33,17 @@ const chatAgent = new Agent(components.agent, {
   instructions:
     "You are a helpful AI assistant. Respond concisely and accurately to user questions.",
   tools: { updateThreadTitle },
+  usageHandler: async (ctx, args) => {
+    console.log({ args });
+    await ctx.runMutation(internal.usage.insertRawUsage, {
+      userId: args.userId as Id<"users">,
+      agentName: args.agentName,
+      model: args.model,
+      provider: args.provider,
+      usage: args.usage,
+      providerMetadata: args.providerMetadata,
+    });
+  },
 });
 
 export const createThread = mutation({

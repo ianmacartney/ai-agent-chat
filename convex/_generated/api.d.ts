@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
 import type * as http from "../http.js";
 import type * as threadTitles from "../threadTitles.js";
+import type * as usage from "../usage.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   http: typeof http;
   threadTitles: typeof threadTitles;
+  usage: typeof usage;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
@@ -52,14 +54,32 @@ export declare const components: {
         "internal",
         {
           agentName?: string;
-          embeddings?: {
-            dimension: 128 | 256 | 512 | 768 | 1024 | 1536 | 2048 | 3072 | 4096;
-            model: string;
-            vectors: Array<Array<number> | null>;
-          };
           failPendingSteps?: boolean;
           messages: Array<{
+            embedding?: {
+              dimension:
+                | 128
+                | 256
+                | 512
+                | 768
+                | 1024
+                | 1536
+                | 2048
+                | 3072
+                | 4096;
+              model: string;
+              vector: Array<number>;
+            };
+            error?: string;
             fileId?: string;
+            finishReason?:
+              | "stop"
+              | "length"
+              | "content-filter"
+              | "tool-calls"
+              | "error"
+              | "other"
+              | "unknown";
             id?: string;
             message:
               | {
@@ -158,8 +178,33 @@ export declare const components: {
                   providerOptions?: Record<string, any>;
                   role: "system";
                 };
+            model?: string;
+            provider?: string;
+            providerMetadata?: Record<string, Record<string, any>>;
+            reasoning?: string;
+            sources?: Array<{
+              id: string;
+              providerMetadata?: Record<string, Record<string, any>>;
+              sourceType: "url";
+              title?: string;
+              url: string;
+            }>;
+            text?: string;
+            usage?: {
+              completionTokens: number;
+              promptTokens: number;
+              totalTokens: number;
+            };
+            warnings?: Array<
+              | {
+                  details?: string;
+                  setting: string;
+                  type: "unsupported-setting";
+                }
+              | { details?: string; tool: any; type: "unsupported-tool" }
+              | { message: string; type: "other" }
+            >;
           }>;
-          model?: string;
           parentMessageId?: string;
           pending?: boolean;
           stepId?: string;
@@ -183,6 +228,14 @@ export declare const components: {
               | string;
             error?: string;
             fileId?: string;
+            finishReason?:
+              | "stop"
+              | "length"
+              | "content-filter"
+              | "tool-calls"
+              | "error"
+              | "other"
+              | "unknown";
             id?: string;
             message?:
               | {
@@ -284,13 +337,37 @@ export declare const components: {
             model?: string;
             order: number;
             parentMessageId?: string;
+            provider?: string;
+            providerMetadata?: Record<string, any>;
+            reasoning?: string;
+            sources?: Array<{
+              id: string;
+              providerMetadata?: Record<string, Record<string, any>>;
+              sourceType: "url";
+              title?: string;
+              url: string;
+            }>;
             status: "pending" | "success" | "failed";
             stepId?: string;
             stepOrder: number;
             text?: string;
             threadId: string;
             tool: boolean;
+            usage?: {
+              completionTokens: number;
+              promptTokens: number;
+              totalTokens: number;
+            };
             userId?: string;
+            warnings?: Array<
+              | {
+                  details?: string;
+                  setting: string;
+                  type: "unsupported-setting";
+                }
+              | { details?: string; tool: any; type: "unsupported-tool" }
+              | { message: string; type: "other" }
+            >;
           }>;
           pending?: {
             _creationTime: number;
@@ -308,6 +385,14 @@ export declare const components: {
               | string;
             error?: string;
             fileId?: string;
+            finishReason?:
+              | "stop"
+              | "length"
+              | "content-filter"
+              | "tool-calls"
+              | "error"
+              | "other"
+              | "unknown";
             id?: string;
             message?:
               | {
@@ -409,13 +494,37 @@ export declare const components: {
             model?: string;
             order: number;
             parentMessageId?: string;
+            provider?: string;
+            providerMetadata?: Record<string, any>;
+            reasoning?: string;
+            sources?: Array<{
+              id: string;
+              providerMetadata?: Record<string, Record<string, any>>;
+              sourceType: "url";
+              title?: string;
+              url: string;
+            }>;
             status: "pending" | "success" | "failed";
             stepId?: string;
             stepOrder: number;
             text?: string;
             threadId: string;
             tool: boolean;
+            usage?: {
+              completionTokens: number;
+              promptTokens: number;
+              totalTokens: number;
+            };
             userId?: string;
+            warnings?: Array<
+              | {
+                  details?: string;
+                  setting: string;
+                  type: "unsupported-setting";
+                }
+              | { details?: string; tool: any; type: "unsupported-tool" }
+              | { message: string; type: "other" }
+            >;
           };
         }
       >;
@@ -423,16 +532,34 @@ export declare const components: {
         "mutation",
         "internal",
         {
-          embeddings?: {
-            dimension: 128 | 256 | 512 | 768 | 1024 | 1536 | 2048 | 3072 | 4096;
-            model: string;
-            vectors: Array<Array<number> | null>;
-          };
           failPendingSteps?: boolean;
           messageId: string;
           step: {
             messages: Array<{
+              embedding?: {
+                dimension:
+                  | 128
+                  | 256
+                  | 512
+                  | 768
+                  | 1024
+                  | 1536
+                  | 2048
+                  | 3072
+                  | 4096;
+                model: string;
+                vector: Array<number>;
+              };
+              error?: string;
               fileId?: string;
+              finishReason?:
+                | "stop"
+                | "length"
+                | "content-filter"
+                | "tool-calls"
+                | "error"
+                | "other"
+                | "unknown";
               id?: string;
               message:
                 | {
@@ -555,6 +682,32 @@ export declare const components: {
                     providerOptions?: Record<string, any>;
                     role: "system";
                   };
+              model?: string;
+              provider?: string;
+              providerMetadata?: Record<string, Record<string, any>>;
+              reasoning?: string;
+              sources?: Array<{
+                id: string;
+                providerMetadata?: Record<string, Record<string, any>>;
+                sourceType: "url";
+                title?: string;
+                url: string;
+              }>;
+              text?: string;
+              usage?: {
+                completionTokens: number;
+                promptTokens: number;
+                totalTokens: number;
+              };
+              warnings?: Array<
+                | {
+                    details?: string;
+                    setting: string;
+                    type: "unsupported-setting";
+                  }
+                | { details?: string; tool: any; type: "unsupported-tool" }
+                | { message: string; type: "other" }
+              >;
             }>;
             step: {
               experimental_providerMetadata?: Record<string, any>;
@@ -569,7 +722,7 @@ export declare const components: {
                 | "unknown";
               isContinued: boolean;
               logprobs?: any;
-              providerMetadata?: Record<string, any>;
+              providerMetadata?: Record<string, Record<string, any>>;
               providerOptions?: Record<string, any>;
               reasoning?: string;
               reasoningDetails?: Array<any>;
@@ -713,7 +866,7 @@ export declare const components: {
               };
               sources?: Array<{
                 id: string;
-                providerMetadata?: Record<string, any>;
+                providerMetadata?: Record<string, Record<string, any>>;
                 sourceType: "url";
                 title?: string;
                 url: string;
@@ -779,7 +932,7 @@ export declare const components: {
               | "unknown";
             isContinued: boolean;
             logprobs?: any;
-            providerMetadata?: Record<string, any>;
+            providerMetadata?: Record<string, Record<string, any>>;
             providerOptions?: Record<string, any>;
             reasoning?: string;
             reasoningDetails?: Array<any>;
@@ -923,7 +1076,7 @@ export declare const components: {
             };
             sources?: Array<{
               id: string;
-              providerMetadata?: Record<string, any>;
+              providerMetadata?: Record<string, Record<string, any>>;
               sourceType: "url";
               title?: string;
               url: string;
@@ -1092,6 +1245,14 @@ export declare const components: {
               | string;
             error?: string;
             fileId?: string;
+            finishReason?:
+              | "stop"
+              | "length"
+              | "content-filter"
+              | "tool-calls"
+              | "error"
+              | "other"
+              | "unknown";
             id?: string;
             message?:
               | {
@@ -1193,13 +1354,37 @@ export declare const components: {
             model?: string;
             order: number;
             parentMessageId?: string;
+            provider?: string;
+            providerMetadata?: Record<string, any>;
+            reasoning?: string;
+            sources?: Array<{
+              id: string;
+              providerMetadata?: Record<string, Record<string, any>>;
+              sourceType: "url";
+              title?: string;
+              url: string;
+            }>;
             status: "pending" | "success" | "failed";
             stepId?: string;
             stepOrder: number;
             text?: string;
             threadId: string;
             tool: boolean;
+            usage?: {
+              completionTokens: number;
+              promptTokens: number;
+              totalTokens: number;
+            };
             userId?: string;
+            warnings?: Array<
+              | {
+                  details?: string;
+                  setting: string;
+                  type: "unsupported-setting";
+                }
+              | { details?: string; tool: any; type: "unsupported-tool" }
+              | { message: string; type: "other" }
+            >;
           }>;
           pageStatus?: "SplitRecommended" | "SplitRequired" | null;
           splitCursor?: string | null;
@@ -1274,6 +1459,14 @@ export declare const components: {
             | string;
           error?: string;
           fileId?: string;
+          finishReason?:
+            | "stop"
+            | "length"
+            | "content-filter"
+            | "tool-calls"
+            | "error"
+            | "other"
+            | "unknown";
           id?: string;
           message?:
             | {
@@ -1375,13 +1568,33 @@ export declare const components: {
           model?: string;
           order: number;
           parentMessageId?: string;
+          provider?: string;
+          providerMetadata?: Record<string, any>;
+          reasoning?: string;
+          sources?: Array<{
+            id: string;
+            providerMetadata?: Record<string, Record<string, any>>;
+            sourceType: "url";
+            title?: string;
+            url: string;
+          }>;
           status: "pending" | "success" | "failed";
           stepId?: string;
           stepOrder: number;
           text?: string;
           threadId: string;
           tool: boolean;
+          usage?: {
+            completionTokens: number;
+            promptTokens: number;
+            totalTokens: number;
+          };
           userId?: string;
+          warnings?: Array<
+            | { details?: string; setting: string; type: "unsupported-setting" }
+            | { details?: string; tool: any; type: "unsupported-tool" }
+            | { message: string; type: "other" }
+          >;
         }>
       >;
       textSearch: FunctionReference<
@@ -1404,6 +1617,14 @@ export declare const components: {
             | string;
           error?: string;
           fileId?: string;
+          finishReason?:
+            | "stop"
+            | "length"
+            | "content-filter"
+            | "tool-calls"
+            | "error"
+            | "other"
+            | "unknown";
           id?: string;
           message?:
             | {
@@ -1505,13 +1726,33 @@ export declare const components: {
           model?: string;
           order: number;
           parentMessageId?: string;
+          provider?: string;
+          providerMetadata?: Record<string, any>;
+          reasoning?: string;
+          sources?: Array<{
+            id: string;
+            providerMetadata?: Record<string, Record<string, any>>;
+            sourceType: "url";
+            title?: string;
+            url: string;
+          }>;
           status: "pending" | "success" | "failed";
           stepId?: string;
           stepOrder: number;
           text?: string;
           threadId: string;
           tool: boolean;
+          usage?: {
+            completionTokens: number;
+            promptTokens: number;
+            totalTokens: number;
+          };
           userId?: string;
+          warnings?: Array<
+            | { details?: string; setting: string; type: "unsupported-setting" }
+            | { details?: string; tool: any; type: "unsupported-tool" }
+            | { message: string; type: "other" }
+          >;
         }>
       >;
       updateThread: FunctionReference<
