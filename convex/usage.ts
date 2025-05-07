@@ -1,11 +1,6 @@
 import { internalMutation, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import {
-  ProviderMetadata,
-  Usage,
-  vProviderMetadata,
-  vUsage,
-} from "@convex-dev/agent";
+import { vProviderMetadata, vUsage } from "@convex-dev/agent";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
@@ -35,6 +30,8 @@ export const insertRawUsage = internalMutation({
   },
 });
 
+const provider = v.string();
+const model = v.string();
 /**
  * Called from a cron monthly to calculate the
  * invoices for the previous billing period
@@ -46,8 +43,17 @@ export const generateInvoices = internalMutation({
     inProgress: v.optional(
       v.object({
         userId: v.id("users"),
-        usage: vUsage,
-        providerMetadata: vProviderMetadata,
+        usage: v.record(
+          provider,
+          v.record(
+            model,
+            v.object({
+              inputTokens: v.number(),
+              outputTokens: v.number(),
+              cachedInputTokens: v.number(),
+            })
+          )
+        ),
       })
     ),
   },
@@ -66,33 +72,30 @@ export const generateInvoices = internalMutation({
         numItems: 100,
       });
     let currentInvoice = args.inProgress;
-    for (const { userId, usage, providerMetadata } of result.page) {
+    for (const doc of result.page) {
+      const cachedPromptTokens =
+        doc.providerMetadata?.openai?.cachedPromptTokens ?? 0;
+      const tokens = {
+        inputTokens: doc.usage.promptTokens - cachedPromptTokens,
+        outputTokens: doc.usage.completionTokens,
+        cachedInputTokens: cachedPromptTokens,
+      };
       if (!currentInvoice) {
         currentInvoice = {
-          userId,
-          usage,
-          providerMetadata,
+          userId: doc.userId,
+          usage: { [doc.provider]: { [doc.model]: tokens } },
         };
-      } else if (userId !== currentInvoice.userId) {
+      } else if (doc.userId !== currentInvoice.userId) {
         await createInvoice(ctx, currentInvoice, billingPeriod);
         currentInvoice = {
-          userId,
-          usage,
-          providerMetadata,
+          userId: doc.userId,
+          usage: { [doc.provider]: { [doc.model]: tokens } },
         };
       } else {
-        currentInvoice.usage.promptTokens += usage.promptTokens;
-        currentInvoice.usage.completionTokens += usage.completionTokens;
-        currentInvoice.usage.totalTokens += usage.totalTokens;
-        if (!providerMetadata?.openai) {
-          // Do nothing
-        } else if (!currentInvoice.providerMetadata?.openai) {
-          currentInvoice.providerMetadata = providerMetadata;
-        } else {
-          currentInvoice.providerMetadata.openai.cachedPromptTokens =
-            (currentInvoice.providerMetadata.openai.cachedPromptTokens ?? 0) +
-            (providerMetadata.openai.cachedPromptTokens ?? 0);
-        }
+        const currentTokens = currentInvoice.usage[doc.provider][doc.model];
+        currentTokens.inputTokens += tokens.inputTokens;
+        currentTokens.outputTokens += tokens.outputTokens;
+        currentTokens.cachedInputTokens += tokens.cachedInputTokens;
       }
     }
     if (result.isDone) {
@@ -111,8 +114,14 @@ export const generateInvoices = internalMutation({
 
 const MILLION = 1000000;
 
-const PRICING = {
-  openai: {
+const PRICING: Record<
+  string,
+  Record<
+    string,
+    { inputPrice: number; cachedInputPrice: number; outputPrice: number }
+  >
+> = {
+  "openai.chat": {
     "gpt-4o-mini": {
       inputPrice: 0.3,
       cachedInputPrice: 0.15,
@@ -125,23 +134,50 @@ async function createInvoice(
   ctx: MutationCtx,
   invoice: {
     userId: Id<"users">;
-    usage: Usage;
-    providerMetadata?: ProviderMetadata;
+    usage: Record<
+      string,
+      Record<
+        string,
+        { inputTokens: number; outputTokens: number; cachedInputTokens: number }
+      >
+    >;
   },
   billingPeriod: string
 ) {
-  const { inputPrice, cachedInputPrice, outputPrice } =
-    PRICING.openai["gpt-4o-mini"];
-  const cachedPromptTokens =
-    invoice.providerMetadata?.openai?.cachedPromptTokens ?? 0;
-  const amount =
-    ((invoice.usage.promptTokens - cachedPromptTokens) / MILLION) * inputPrice +
-    (cachedPromptTokens / MILLION) * cachedInputPrice +
-    (invoice.usage.completionTokens / MILLION) * outputPrice;
-  await ctx.db.insert("invoices", {
-    userId: invoice.userId,
-    amount,
-    billingPeriod,
-    status: "pending",
-  });
+  let amount = 0;
+  for (const provider of Object.keys(invoice.usage)) {
+    for (const model of Object.keys(invoice.usage[provider])) {
+      if (PRICING[provider][model] === undefined) {
+        throw new Error(`Missing pricing for ${provider} ${model}`);
+      }
+      const { inputPrice, cachedInputPrice, outputPrice } =
+        PRICING[provider][model];
+      const { inputTokens, cachedInputTokens, outputTokens } =
+        invoice.usage[provider][model];
+      amount +=
+        ((inputTokens - cachedInputTokens) / MILLION) * inputPrice +
+        (cachedInputTokens / MILLION) * cachedInputPrice +
+        (outputTokens / MILLION) * outputPrice;
+    }
+  }
+  // Check if the invoice already exists
+  const existingInvoice = await ctx.db
+    .query("invoices")
+    .withIndex("billingPeriod_userId", (q) =>
+      q.eq("billingPeriod", billingPeriod).eq("userId", invoice.userId)
+    )
+    .filter((q) => q.neq(q.field("status"), "failed"))
+    .first();
+  if (existingInvoice) {
+    console.error(
+      `Invoice already exists for ${invoice.userId} ${billingPeriod}`
+    );
+  } else {
+    await ctx.db.insert("invoices", {
+      userId: invoice.userId,
+      amount,
+      billingPeriod,
+      status: "pending",
+    });
+  }
 }
